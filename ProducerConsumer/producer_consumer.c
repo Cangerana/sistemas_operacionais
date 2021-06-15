@@ -36,11 +36,11 @@ void *producer(void *id_thread) {
     while (1) {
         sem_wait(&mutex);
         if (tail > buffer_size - 2) {
-            printf("Papai, n consigo ser produtivo! im the %d \n",tid);
+            printf("Can't produce! Thread[%d] \n",tid);
         }
 
         else {
-            printf("To produzindo papai -> [%i]!!! tem orgulho de mim agora?! im the %d \n", produce_value(), tid);
+            printf("Produced: (%i)! Thread[%d] \n", produce_value(), tid);
         }
         sem_post(&mutex);
         sleep(2);
@@ -61,12 +61,12 @@ void *consumer(void *id_thread) {
 
         while (1) {
             if (tail < 0) {
-                printf("Papai, quero consumir, da na minha boquinha!! im the %d \n", tid);
+                printf("Can't consume! Thread[%d] \n", tid);
             }
 
             else {
                 int value = consumeValue();
-                printf("eu consumi o valor %d  im the %d \n", value, tid);
+                printf("Consumed: (%d)! Thread[%d] \n", value, tid);
             }
             sem_post(&mutex);
             sleep(3);
@@ -87,12 +87,10 @@ void startThreads(int amt_prod, int amt_cons) {
 
     for(int i = 0; i < amt_max; i++) {
         if(i < amt_cons) {
-            printf("Criando o consumidor %d dale  ! \n",i);
             pthread_create(&consumers[i], NULL, consumer, &i);
         }
 
         if(i < amt_prod) {
-            printf("Criando o produtor  %d dale  ! \n",i);
             pthread_create(&producers[i], NULL, producer, &i);
         }
     }
