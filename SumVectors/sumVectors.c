@@ -10,64 +10,85 @@ float *vecX;
 float *vecY;
 float *vecZ;
 
-void *preencheVetores( void *s ) {
-    int *size = ( int * )s;
-    vecX = malloc( sizeof( float ) * *size );
-    vecY = malloc( sizeof( float ) * *size );
-    vecZ = malloc( sizeof( float ) * *size );
+struct arg_ {
+    float *vectorX;
+    float *vectorY;
+    float *vectorZ;
+    sem_t *mutex;
+    int init;
+    int end;
+};
 
-    for (int i = 0; i < *size; ++i)
-    {
-        *( vecX + i ) = ( float ) rand() / RAND_MAX;
-        *( vecY + i ) = ( float ) rand() / RAND_MAX;
+void *preencheVetores( void *arguments ) {
+    struct arg_ *args = ( struct arg_ * ) arguments;
+    for ( int i = args->init; i <= args->end;i++) {
+        sem_wait(args->mutex);
+        *( args->vectorX + i ) = 1.0 + (( float ) rand() / RAND_MAX);
+        *( args->vectorY + i ) = 1.0 + (( float ) rand() / RAND_MAX);
+        sem_post(args->mutex);
     }
 }
 
 void printVector( float *vector, int size ) {
     for( int i = 0; i < size; i++ ) {
-        printf( "Vector[%i] : %f\n", i + 1, vector[i] );
+        printf( "Vector[%i] : %f\n", i, vector[i] );
     }
 }
 
-void *sumVector( void *arg ) {
-    int i, tid, portion_size, start, end;
+void *sumVector( void *arguments ) {
+    struct arg_ *args = ( struct arg_ * ) arguments;
 
-    tid = *( int * )( arg );
-    portion_size = size / num_threads;
-    start = tid * portion_size;
-    end = ( tid + 1 ) * portion_size;
-
-    for ( i = start; i < end; ++i ) {
-        *( vecZ + i ) = *( vecX + i ) + *( vecY + i );
+    for ( int i = args->init; i <= args->end; i++) {
+        sem_wait(args->mutex);
+        // while (! *( args->vectorX + i) && ! *( args->vectorY + i)) {}
+        *( args->vectorZ + i ) = *( args->vectorX + i ) + *( args->vectorY + i );
+        sem_post(args->mutex);
     }
 }
+
 
 void main() {
     clock_t tempo;
-    
-    size = 10000000;
-    num_threads = 1;
+    num_threads = 16;
+    size = 160000000;
+    int ubuntu = (size/num_threads);
 
-    pthread_t * threads;
-    threads = ( pthread_t * ) malloc( num_threads* sizeof(  pthread_t ) );
+    vecX = ( float* ) malloc( sizeof( float ) * (size) );
+    vecY = ( float* ) malloc( sizeof( float ) * (size) );
+    vecZ = ( float* ) malloc( sizeof( float ) * (size) );
 
-    preencheVetores( ( void* ) &size );
+    sem_t *mutex = ( sem_t * ) malloc( num_threads* sizeof( sem_t ) );
 
-	tempo = clock();
+    pthread_t * threadsP = ( pthread_t * ) malloc( num_threads* sizeof( pthread_t ) );
 
-    for( int i = 0; i < num_threads; i++ ) {       
-        int *tid;
-        tid = ( int * ) malloc( sizeof( int ) );
-        *tid = i;
-        pthread_create( &threads[i], NULL, sumVector, ( void * ) tid );
+    pthread_t * threadsS = ( pthread_t * ) malloc( num_threads* sizeof( pthread_t ) );
+
+    struct arg_ *args = ( struct arg_ * ) malloc( num_threads* sizeof( struct arg_ ) );
+    tempo = clock();
+    for( int i = 0; i < num_threads; i++ ) {
+        sem_init( &mutex[i], 0, 1 );
+
+        args[i].vectorX = vecX;
+        args[i].vectorY = vecY;
+        args[i].vectorZ = vecZ;
+        args[i].mutex = (mutex + i);
+        args[i].init = i * ubuntu;
+        args[i].end = ((i+1) * ubuntu) -1;
+        
+        pthread_create( &threadsP[i], NULL, preencheVetores, (void *) & args[i] );
+        pthread_create( &threadsS[i], NULL, sumVector, ( void * ) & args[i] );
+        sem_destroy( &mutex[i]);
     }
 
     for( int i = 0; i < num_threads; ++i ) {
-        pthread_join( threads[i], NULL );
+        pthread_join( threadsP[i], NULL );
+        pthread_join( threadsS[i], NULL );
     }
 
-    printf( "\nDone\n" );
-	printf( "\n Time:%f\n",( clock() - tempo ) / ( double ) CLOCKS_PER_SEC );
-
+    printf( "\n Time:%f\n",( clock() - tempo ) / ( double ) CLOCKS_PER_SEC );
     pthread_exit( NULL );
+    // printVector(vecX, size);
+
+    // printVector(vecY, size);
+    // printVector(vecZ, size);
 }
