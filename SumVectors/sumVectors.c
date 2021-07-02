@@ -6,6 +6,7 @@
 #include <unistd.h>
 
 int size, amt_threads;
+int canPrint = 0;
 float *vecX;
 float *vecY;
 float *vecZ;
@@ -38,6 +39,7 @@ void *fiuVector( void *arguments ) {
 void printVector( float *vector, int size ) {
     for( int i = 0; i < size; i++ )
         printf( "Vector[%i] : %f\n", i, vector[i] );
+
 }
 
 void *sumVector( void *arguments ) {
@@ -51,6 +53,7 @@ void *sumVector( void *arguments ) {
         *( args->vectorZ + i ) = *( args->vectorX + i ) + *( args->vectorY + i );
 
     pthread_mutex_unlock( args->mutex );
+    canPrint++;
 }
 
 void main() {
@@ -82,6 +85,7 @@ void main() {
 
     time_t start,end;
     time( &start );
+    clock_t begin = clock();
 
     for ( int i = 0; i < amt_threads; i++ ) {
         pthread_mutex_init(&mutex[i], NULL);
@@ -100,18 +104,18 @@ void main() {
         pthread_create( &threadsS[i], NULL, sumVector, ( void * ) & args[i] );
     }
 
-    for( int i = 0; i < amt_threads; ++i ) {
-        pthread_join( threadsP[i], NULL );
-        pthread_join( threadsS[i], NULL );
-    }
+    while (canPrint < amt_threads) {}
+    
+    time (&end);
+    clock_t duend = clock();
 
-    time( &end );
+    double time_spent = (double)(duend - begin) / CLOCKS_PER_SEC / amt_threads;
+    float dif = difftime (end,start);
 
-    float dif = difftime( end, start );
+    printf("\nTime using --> Clock: %.5lf Seconds\n", time_spent);
+    printf("Time using -->  Time: %.5lf Seconds\n", dif);
 
-    printf( "\n Time: %.3lf Seconds\n", dif );
-
-    // printVector(vecZ, size); // Uncomment if wanna see the result
+    printVector(vecZ, size); //  if wanna see the result
 
     pthread_exit( NULL );
 }
